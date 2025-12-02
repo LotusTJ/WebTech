@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if (password_verify($password, $user['password'])) {
                     session_regenerate_id(true);  
-                    $_SESSION['user_id'] = $user['FacultyId'];
+                    $_SESSION['user_id'] = $user['FacultyID'];
                     $_SESSION['user_email'] = $user['FacultyEmail'];
                     $_SESSION['user_name'] = $user['FacultyName'];
                     $_SESSION['logged_in'] = true;

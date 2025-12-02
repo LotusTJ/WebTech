@@ -1,38 +1,37 @@
 <?php
+session_start();
 require_once 'config.php';
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: login_user.php");
     exit();
-
-
 }
+
 $conn = getDBConnection();
 $faculty_id = $_SESSION['user_id'];
 $faculty_name = $_SESSION['user_name'];
 
-if($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $course_name = trim($_POST['course_name'] ?? '');
 
     if (!empty($course_name)) {
-        $stmt = $conn->prepare("INSERT INTO courses (CourseName, FacultyID) VALUES (?, ?)");
+        $stmt = $conn->prepare("INSERT INTO courses (courseName, FacultyID) VALUES (?, ?)");
+        echo $faculty_id;
         $stmt->bind_param("si", $course_name, $faculty_id);
-        
+
         if ($stmt->execute()) {
             header("Location: facultydashboard.php");
             exit();
         } else {
             $error = "Error adding course. Please try again.";
         }
-        
+
         $stmt->close();
     } else {
         $error = "Course name cannot be empty.";
     }
 }
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -78,7 +77,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 5px;
         }
 
-        input[type="submit"] {
+        input[type="submit"], button {
             margin-top: 20px;
             padding: 10px;
             background-color: #003366; 
@@ -88,18 +87,31 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             cursor: pointer;
         }
 
-        input[type="submit"]:hover {
+        input[type="submit"]:hover, button:hover {
             background-color: #0059b3; 
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Add New Course</h2>
+
+        <?php if (!empty($error)): ?>
+            <div class="error"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+
         <form method="POST" action="add_course.php">
             <label for="course_name">Course Name:</label>
             <input type="text" id="course_name" name="course_name" required>
 
-            <button type="submit" value="Add Course">Add Course</button>
+            <button type="submit">Add Course</button>
         </form>
     </div>
+</body>
+</html>

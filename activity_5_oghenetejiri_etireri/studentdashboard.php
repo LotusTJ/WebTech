@@ -1,41 +1,48 @@
+
 <?php
 require_once 'config.php';
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
-    header("Location: login_student.php");
+    header("Location: login_faculty.php");
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
+$user_name = $_SESSION['user_name'];
+
 $conn = getDBConnection();
-$student_id = $_SESSION['user_id'];
-$student_name = $_SESSION['user_name'];
 
-/*enrolled Courses*/
+
 $stmt = $conn->prepare("
-    SELECT courses.course_id, courses.CourseName, faculty.FacultyName
-    FROM courses
-    JOIN enrollments ON courses.course_id = enrollments.course_id
-    JOIN faculty ON courses.FacultyID = faculty.FacultyID
-    WHERE enrollments.StudentID = ? AND enrollments.status = 'approved'
+    SELECT c.course_id, c.course_name, f.faculty_name
+    FROM courses c
+    JOIN faculty f ON c.faculty_id = f.faculty_id
 ");
-$stmt->bind_param("i", $student_id);
 $stmt->execute();
-$enrolled_courses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$result = $stmt->get_result();
+$courses = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-/*pending Requests*/
-$stmt = $conn->prepare("
-    SELECT courses.course_id, courses.CourseName, faculty.FacultyName, enrollments.request_date, enrollments.status
-    FROM courses
-    JOIN enrollments ON courses.course_id = enrollments.course_id
-    JOIN faculty ON courses.FacultyID = faculty.FacultyID
-    WHERE enrollments.StudentID = ? AND enrollments.status = 'pending'
+
+$stmt=$conn->prepare("
+    SELECT r.course_id, c.course_name, r.student_id, r.approved
+    FROM requests r
+    JOIN courses c ON r.course_id = c.course_id
+    WHERE r.student_id = ?
 ");
-$stmt->bind_param("i", $student_id);
+$stmt->bind_param("i", $user_id);
 $stmt->execute();
-$pending_requests = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$result = $stmt->get_result();
+$requests = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+
+$stmtmt = $conn->prepare("SELECT * FROM enrollment WHERE student_id = ?");
+$stmtmt->bind_param("i", $user_id);
+$stmtmt->execute();
+$result = $stmtmt->get_result();
+$enrollments = $result->fetch_all(MYSQLI_ASSOC);
+$stmtmt->close();
 $conn->close();
 ?>
 
@@ -43,121 +50,77 @@ $conn->close();
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        body {
-            background: #d9ecff;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        nav {
-            background: #003366;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        nav a {
-            color: white;
-            text-decoration: none;
-            margin-right: 20px;
-            font-size: 16px;
-        }
-
-        .container {
-            width: 85%;
-            margin: 40px auto;
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            border: 3px solid #003366;
-        }
-
-        h1, h2 {
-            color: #003366;
-        }
-
-        ul {
-            background: #f5f9ff;
-            border: 2px solid #003366;
-            padding: 15px;
-            border-radius: 10px;
-            list-style: none;
-        }
-
-        ul li {
-            padding: 10px 5px;
-            border-bottom: 1px solid #aac7e3;
-        }
-
-        ul li:last-child {
-            border-bottom: none;
-        }
-
-        .status {
-            font-weight: bold;
-        }
-
-        .pending {
-            color: #ff9800;
-        }
-
-        .approved {
-            color: #4caf50;
-        }
-    </style>
+    <script src="student_dashboard.js" defer></script>
 </head>
 <body>
+    <nav>
+        <a href="student_dashboard.php">Dashboard</a>
+        <a href="add_request.php">Join Course</a>
+        <a href="student_mark_attendance.php">Mark Attendance</a>
+        <a href="student_reports.php">My Reports</a>
+        <a href="logout.php">Logout</a>
+    </nav>
+    <div class="container">
+        <header>
+            <h1>Welcome, <?php echo htmlspecialchars($user_name); ?>!</h1>
+        </header>
+        <main>
+            <section id="enrollmentsSection">
+                <h2>Your Courses</h2>
+                <div id="enrollmentsContainer">
+                    <?php if (empty($enrollments)): ?>
+                        <p>No enrollments found.</p>
+                    <?php else: ?>
+                        <ul>
+                            <?php foreach ($enrollments as $enrollment): ?>
+                                <li>
+                                    <strong><?php echo htmlspecialchars($enrollment['course_name']); ?></strong>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </section>
+            
+            <section id="requestsSection">
+                <h2>Your Requests</h2>
+                <div id="requestsContainer">
+                    <?php if (empty($requests)): ?>
+                        <p>No requests found. Please request to join a course.</p>
+                    <?php else: ?>
+                        <ul>
+                            <?php foreach ($requests as $request): ?>
+                                <li>
+                                    <strong><?php echo htmlspecialchars($request['course_name']); ?></strong> - Status: <?php echo $request['approved'] ? 'Approved' : 'Pending'; ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </section>
 
-<nav>
-    <a href="studentdashboard.php">Dashboard</a>
-    <a href="browse_courses.php">Browse Courses</a>
-    <a href="logout.php">Logout</a>
-</nav>
-
-<div class="container">
-    <h1>Welcome, <?php echo htmlspecialchars($student_name); ?>!</h1>
-
-    
-    <section>
-        <h2>My Enrolled Courses</h2>
-        <?php if (empty($enrolled_courses)): ?>
-            <p>You are not enrolled in any courses yet.</p>
-        <?php else: ?>
-            <ul>
-                <?php foreach ($enrolled_courses as $course): ?>
-                    <li>
-                        <strong><?php echo htmlspecialchars($course['CourseName']); ?></strong>
-                        — Faculty: <?php echo htmlspecialchars($course['FacultyName']); ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-    </section>
-
-    
-    <section style="margin-top: 30px;">
-        <h2>Pending Enrollment Requests</h2>
-        <?php if (empty($pending_requests)): ?>
-            <p>You have no pending enrollment requests.</p>
-        <?php else: ?>
-            <ul>
-                <?php foreach ($pending_requests as $req): ?>
-                    <li>
-                        <strong><?php echo htmlspecialchars($req['CourseName']); ?></strong>
-                        — Faculty: <?php echo htmlspecialchars($req['FacultyName']); ?>
-                        — Status:
-                        <span class="status pending"><?php echo ucfirst($req['status']); ?></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-    </section>
-
-</div>
-
+            <section id="coursesSection">
+                <h2>All Available Courses</h2>
+                <div id="coursesContainer">
+                    <?php if (empty($courses)): ?>
+                        <p>No courses found.</p>
+                    <?php else: ?>
+                        <ul>
+                            <?php foreach ($courses as $course): ?>
+                                <li>
+                                    <strong><?php echo htmlspecialchars($course['course_name']); ?> - Faculty: <?php echo htmlspecialchars($course['faculty_name']); ?></strong>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </section>
+        </main>
+    </div>
 </body>
 </html>
+
+

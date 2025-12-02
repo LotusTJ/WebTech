@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request_id'])
 
     $update_stmt = $conn->prepare("
         UPDATE enrollment e
-        JOIN courses c ON e.course_id = c.course_id
+        JOIN courses c ON e.course_id = c.course_ID
         SET e.status = 'approved'
         WHERE e.enrollment_id = ? AND c.FacultyID = ?
     ");
@@ -29,12 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request_id'])
     if ($update_stmt->execute()) {
         $update_stmt->close();
 
-        //Insert into final student enrollment table 
         $insert_stmt = $conn->prepare("
             INSERT INTO enrollment_final (student_id, course_id)
             SELECT e.StudentID, e.course_id
             FROM enrollment e
-            JOIN courses c ON e.course_id = c.course_id
+            JOIN courses c ON e.course_id = c.course_ID
             WHERE e.enrollment_id = ? AND c.FacultyID = ?
         ");
 
@@ -47,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request_id'])
 /* 
    GET faculty courses.
  */
-$stmt = $conn->prepare("SELECT course_id, CourseName FROM courses WHERE FacultyID = ?");
+$stmt = $conn->prepare("SELECT course_ID, courseName FROM courses WHERE FacultyID = ?");
 $stmt->bind_param("i", $faculty_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -55,10 +54,10 @@ $courses = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 /* 
-
+   GET student enrollment requests
  */
 $request_stmt = $conn->prepare("
-    SELECT e.enrollment_id, e.course_id, c.CourseName, s.StudentName
+    SELECT e.enrollment_id, e.course_id, c.courseName, s.StudentName
     FROM enrollment e
     JOIN courses c ON e.course_id = c.course_ID
     JOIN students s ON e.student_id= s.StudentID
@@ -177,11 +176,12 @@ $conn->close();
     <ul>
         <li><a href="faculty_dashboard.php">Dashboard</a></li>
         <li><a href="my_courses.php">Courses</a></li>
+        <li><a href="add_course.php">Add Courses</a></li> 
     </ul>
 </div>
 
 <div class="container">
-    <h1>Welcome, <?php echo htmlspecialchars($faculty_name); ?>!</h1>
+    <h1>Welcome, <?php echo htmlspecialchars($faculty_name); echo($faculty_id); ?> !</h1>
 
     <h2>Your Courses</h2>
 
@@ -193,8 +193,8 @@ $conn->close();
             </tr>
             <?php foreach ($courses as $course): ?>
                 <tr>
-                    <td><?php echo htmlspecialchars($course['course_id']); ?></td>
-                    <td><?php echo htmlspecialchars($course['CourseName']); ?></td>
+                    <td><?php echo htmlspecialchars($course['course_ID']); ?></td>
+                    <td><?php echo htmlspecialchars($course['courseName']); ?></td>
                 </tr>
             <?php endforeach; ?>
         </table>
@@ -215,7 +215,7 @@ $conn->close();
 
             <?php foreach ($requests as $req): ?>
                 <tr>
-                    <td><?php echo htmlspecialchars($req['student_name']); ?></td>
+                    <td><?php echo htmlspecialchars($req['StudentName']); ?></td>
                     <td><?php echo htmlspecialchars($req['CourseName']); ?></td>
                     <td class="<?php echo $req['status'] === 'approved' ? 'status-approved' : 'status-pending'; ?>">
                         <?php echo ucfirst(htmlspecialchars($req['status'])); ?>
